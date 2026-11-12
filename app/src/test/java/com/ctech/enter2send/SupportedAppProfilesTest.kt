@@ -22,6 +22,38 @@ class SupportedAppProfilesTest {
             SupportedAppProfiles.claudeRemoteControl,
             SupportedAppProfiles.forPackage("com.anthropic.claude")
         )
+        assertSame(
+            SupportedAppProfiles.instagram,
+            SupportedAppProfiles.forPackage("com.instagram.android")
+        )
+        assertSame(
+            SupportedAppProfiles.instagram,
+            SupportedAppProfiles.forPackage("com.instagram.direct")
+        )
+        assertSame(
+            SupportedAppProfiles.viber,
+            SupportedAppProfiles.forPackage("com.viber.voip")
+        )
+        assertSame(
+            SupportedAppProfiles.whatsApp,
+            SupportedAppProfiles.forPackage("com.whatsapp")
+        )
+        assertSame(
+            SupportedAppProfiles.gemini,
+            SupportedAppProfiles.forPackage("com.google.android.apps.bard")
+        )
+        assertSame(
+            SupportedAppProfiles.gemini,
+            SupportedAppProfiles.forPackage("com.google.android.googlequicksearchbox")
+        )
+        assertSame(
+            SupportedAppProfiles.slack,
+            SupportedAppProfiles.forPackage("com.Slack")
+        )
+        assertSame(
+            SupportedAppProfiles.discord,
+            SupportedAppProfiles.forPackage("com.discord")
+        )
         assertNull(SupportedAppProfiles.forPackage("com.example.other"))
         assertNull(SupportedAppProfiles.forPackage(null))
     }
@@ -31,6 +63,12 @@ class SupportedAppProfilesTest {
         assertTrue(SupportedAppProfiles.chatGpt.enabledByDefault)
         assertFalse(SupportedAppProfiles.messenger.enabledByDefault)
         assertFalse(SupportedAppProfiles.claudeRemoteControl.enabledByDefault)
+        assertFalse(SupportedAppProfiles.instagram.enabledByDefault)
+        assertFalse(SupportedAppProfiles.viber.enabledByDefault)
+        assertFalse(SupportedAppProfiles.whatsApp.enabledByDefault)
+        assertFalse(SupportedAppProfiles.gemini.enabledByDefault)
+        assertFalse(SupportedAppProfiles.slack.enabledByDefault)
+        assertFalse(SupportedAppProfiles.discord.enabledByDefault)
     }
 
     @Test
@@ -81,7 +119,17 @@ class SupportedAppProfilesTest {
     @Test
     fun containsExactlyTheDeclaredSupportedApps() {
         assertEquals(
-            setOf("com.openai.chatgpt", "com.facebook.orca", "com.anthropic.claude"),
+            setOf(
+                "com.openai.chatgpt",
+                "com.facebook.orca",
+                "com.anthropic.claude",
+                "com.instagram.android",
+                "com.viber.voip",
+                "com.whatsapp",
+                "com.google.android.apps.bard",
+                "com.Slack",
+                "com.discord"
+            ),
             SupportedAppProfiles.all.map { it.packageName }.toSet()
         )
     }

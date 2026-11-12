@@ -15,6 +15,12 @@
     <string name="chatgpt_summary">Verified in normal Chat and Remote. Enabled by default.</string>
     <string name="messenger_summary">Verified in Messenger chats. Opt in when you want Enter to send.</string>
     <string name="claude_remote_summary">Remote Control only. Ordinary Claude chats and Dispatch stay native.</string>
+    <string name="instagram_summary">Verified in Direct messages. Opt in when you want Enter to send.</string>
+    <string name="viber_summary">Verified in Viber chats. Opt in when you want Enter to send.</string>
+    <string name="whatsapp_summary">Verified in WhatsApp chats. Opt in when you want Enter to send.</string>
+    <string name="gemini_summary">Verified in Gemini prompts. Opt in when you want Enter to send.</string>
+    <string name="slack_summary">Verified in Slack messages. Opt in when you want Enter to send.</string>
+    <string name="discord_summary">Verified in Discord text channels and DMs. Opt in when you want Enter to send.</string>
     <string name="keyboard_controls_label">Keyboard controls</string>
     <string name="key_help">Enter / Numpad Enter  •  Send\nShift+Enter  •  New line\n\nAfter a successful send, Enter2Send waits for the app to clear its Send control before restoring composer focus.</string>
     <string name="safety_label">Safe by design</string>

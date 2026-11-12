@@ -52,11 +52,40 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         }
 
         if (event.action != KeyEvent.ACTION_DOWN) return false
-        if (event.isShiftPressed) return false
         if (event.repeatCount > 0) return consumedKeyCode == event.keyCode
 
         val activeApp = activeAppRoot() ?: run {
             resetSendOperation()
+            return false
+        }
+
+        if (event.isShiftPressed) {
+            val composer = findFocusedComposer(activeApp.root, activeApp.profile) ?: return false
+            val text = composer.text?.toString() ?: ""
+            val start = composer.textSelectionStart
+            val end = composer.textSelectionEnd
+            val newText = if (start >= 0 && end >= start && end <= text.length) {
+                text.substring(0, start) + "\n" + text.substring(end)
+            } else {
+                text + "\n"
+            }
+            val args = android.os.Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    newText
+                )
+            }
+            val setSuccess = composer.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            if (setSuccess) {
+                val newCursor = if (start >= 0 && end >= start && end <= text.length) start + 1 else newText.length
+                val selectionArgs = android.os.Bundle().apply {
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                }
+                composer.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, selectionArgs)
+                consumedKeyCode = event.keyCode
+                return true
+            }
             return false
         }
 
@@ -90,7 +119,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         if (!profile.requiresWindowIdentity) return true
 
         fun visit(node: AccessibilityNodeInfo): Boolean {
-            if (node.packageName?.toString() == profile.packageName &&
+            if (profile.matchesPackage(node.packageName?.toString()) &&
                 node.isVisibleToUser &&
                 node.isEnabled &&
                 !node.isEditable
@@ -311,11 +340,16 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         node: AccessibilityNodeInfo,
         profile: SupportedAppProfile,
         requireFocus: Boolean
-    ): Boolean = node.packageName?.toString() == profile.packageName &&
-        node.isVisibleToUser &&
-        node.isEnabled &&
-        node.isEditable &&
-        (!requireFocus || node.isFocused)
+    ): Boolean {
+        if (!node.isVisibleToUser || !node.isEnabled) return false
+        val pkg = node.packageName?.toString()
+        val matchesPkg = profile.matchesPackage(pkg) || pkg == "android" || pkg?.contains("webview", ignoreCase = true) == true || pkg?.contains("chrome", ignoreCase = true) == true
+        if (!matchesPkg) return false
+
+        val isEditableOrInput = node.isEditable ||
+            (!requireFocus && (node.className?.toString()?.contains("Edit", ignoreCase = true) == true || supportsAction(node, AccessibilityNodeInfo.ACTION_SET_TEXT)))
+        return isEditableOrInput && (!requireFocus || node.isFocused)
+    }
 
     private fun createComposerAnchor(
         composer: AccessibilityNodeInfo,
@@ -332,7 +366,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
     private fun matchesComposerAnchor(
         composer: AccessibilityNodeInfo,
         anchor: ComposerAnchor
-    ): Boolean = composer.packageName?.toString() == anchor.packageName &&
+    ): Boolean = (composer.packageName?.toString() == anchor.packageName || SupportedAppProfiles.forPackage(anchor.packageName)?.matchesPackage(composer.packageName?.toString()) == true) &&
         composer.className?.toString() == anchor.className &&
         composer.viewIdResourceName == anchor.viewIdResourceName &&
         composerAncestorClassNames(composer) == anchor.ancestorClassNames
@@ -361,7 +395,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         var ancestor: AccessibilityNodeInfo? = composer
         repeat(MAX_COMPOSER_ANCESTOR_LEVELS) {
             ancestor = ancestor?.parent
-            val scope = ancestor ?: return SendButtonMatch.Absent
+            val scope = ancestor ?: return@repeat
             val candidates = mutableListOf<AccessibilityNodeInfo>()
             collectIdentityTargets(
                 scope,
@@ -374,6 +408,19 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
                 in 2..Int.MAX_VALUE -> return SendButtonMatch.Ambiguous
             }
         }
+
+        // Fallback: search window root if ancestor search yielded no unique button
+        val root = rootInActiveWindow
+        if (root != null) {
+            val rootCandidates = mutableListOf<AccessibilityNodeInfo>()
+            collectIdentityTargets(root, null, profile, rootCandidates)
+            if (rootCandidates.size == 1) {
+                return SendButtonMatch.Unique(rootCandidates.single())
+            } else if (rootCandidates.size > 1) {
+                return SendButtonMatch.Ambiguous
+            }
+        }
+
         return SendButtonMatch.Absent
     }
 
@@ -389,7 +436,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
             if (isClickableActionNode(node, profile)) node else clickableAncestor
         if (clickableTarget != null &&
             isIdentityBearingActionNode(node, profile) &&
-            profile.hasSendIdentity(node.contentDescription, node.viewIdResourceName) &&
+            profile.hasSendIdentity(node.contentDescription, node.viewIdResourceName, node.text) &&
             matches.none { it == clickableTarget }
         ) {
             matches += clickableTarget
@@ -411,7 +458,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         node: AccessibilityNodeInfo,
         profile: SupportedAppProfile
     ): Boolean =
-        node.packageName?.toString() == profile.packageName &&
+        (profile.matchesPackage(node.packageName?.toString()) || node.packageName == null) &&
             node.isVisibleToUser &&
             node.isEnabled &&
             node.isClickable &&
@@ -421,14 +468,10 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         node: AccessibilityNodeInfo,
         profile: SupportedAppProfile
     ): Boolean {
-        if (node.packageName?.toString() != profile.packageName ||
-            !node.isVisibleToUser ||
-            !node.isEnabled ||
-            node.isEditable
-        ) return false
-
-        val className = node.className?.toString()
-        return node.isClickable || className == CLASS_BUTTON || className == CLASS_VIEW
+        return (profile.matchesPackage(node.packageName?.toString()) || node.packageName == null) &&
+            node.isVisibleToUser &&
+            node.isEnabled &&
+            !node.isEditable
     }
 
     private fun supportsAction(node: AccessibilityNodeInfo, action: Int): Boolean =
@@ -475,7 +518,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
     companion object {
         private const val CLASS_BUTTON = "android.widget.Button"
         private const val CLASS_VIEW = "android.view.View"
-        private const val MAX_COMPOSER_ANCESTOR_LEVELS = 5
+        private const val MAX_COMPOSER_ANCESTOR_LEVELS = 8
         private const val MAX_COMPOSER_ANCHOR_ANCESTORS = 3
         private const val SEND_POLL_INTERVAL_MS = 100L
         private const val SEND_CONFIRM_TIMEOUT_MS = 3_000L
