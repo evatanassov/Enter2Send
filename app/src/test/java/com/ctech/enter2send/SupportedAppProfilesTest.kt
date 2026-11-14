@@ -62,6 +62,14 @@ class SupportedAppProfilesTest {
             SupportedAppProfiles.antigravity,
             SupportedAppProfiles.forPackage("com.google.antigravity")
         )
+        assertSame(
+            SupportedAppProfiles.antigravity,
+            SupportedAppProfiles.forPackage("com.google.android.apps.jetski")
+        )
+        assertSame(
+            SupportedAppProfiles.antigravity,
+            SupportedAppProfiles.forPackage("org.chromium.webapk.a1b2c3d4")
+        )
         assertNull(SupportedAppProfiles.forPackage("com.example.other"))
         assertNull(SupportedAppProfiles.forPackage(null))
     }
@@ -77,7 +85,7 @@ class SupportedAppProfilesTest {
         assertFalse(SupportedAppProfiles.gemini.enabledByDefault)
         assertFalse(SupportedAppProfiles.slack.enabledByDefault)
         assertFalse(SupportedAppProfiles.discord.enabledByDefault)
-        assertFalse(SupportedAppProfiles.antigravity.enabledByDefault)
+        assertTrue(SupportedAppProfiles.antigravity.enabledByDefault)
     }
 
     @Test

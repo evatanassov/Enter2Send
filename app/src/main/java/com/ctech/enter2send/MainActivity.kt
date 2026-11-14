@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     private lateinit var serviceStatus: TextView
     private lateinit var serviceSummary: TextView
     private lateinit var masterSwitch: Switch
+    private lateinit var diagnosticText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,6 +116,35 @@ class MainActivity : Activity() {
             })
         })
 
+        content.addView(sectionHeading("Diagnostics (Last Enter Press)"))
+        content.addView(sectionCard().apply {
+            diagnosticText = textView("", 12f, COLOR_MUTED).apply {
+                typeface = Typeface.MONOSPACE
+                setTextIsSelectable(true)
+                setPadding(0, 0, 0, dp(12))
+            }
+            addView(diagnosticText)
+            addView(Button(this@MainActivity).apply {
+                text = "Copy diagnostics"
+                isAllCaps = false
+                setTextColor(Color.WHITE)
+                backgroundTintList = ColorStateList.valueOf(COLOR_PRIMARY)
+                setOnClickListener {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText(
+                            "Enter2Send Diagnostics",
+                            BridgePreferences.getLastDiagnostic(this@MainActivity)
+                        )
+                    )
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            })
+        })
+
         val scrollView = ScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(COLOR_BACKGROUND)
@@ -137,6 +167,7 @@ class MainActivity : Activity() {
         serviceSummary.text = getString(
             if (enabled) R.string.service_on_summary else R.string.service_off_summary
         )
+        diagnosticText.text = BridgePreferences.getLastDiagnostic(this)
     }
 
     private fun appCard(profile: SupportedAppProfile): View =

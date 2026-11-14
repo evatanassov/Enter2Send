@@ -10,7 +10,10 @@ data class SupportedAppProfile(
     internal val enabledByDefault: Boolean,
     private val sendDescriptions: Set<String>,
     private val sendViewIdSuffixes: Set<String>,
-    private val requiredWindowIdentities: Set<String> = emptySet()
+    private val requiredWindowIdentities: Set<String> = emptySet(),
+    private val packageSubstrings: Set<String> = emptySet(),
+    private val sendDescriptionPrefixes: Set<String> = emptySet(),
+    internal val allowUnlabeledComposerButtonFallback: Boolean = false
 ) {
     constructor(
         displayName: String,
@@ -35,8 +38,11 @@ data class SupportedAppProfile(
     val packageName: String
         get() = packageNames.first()
 
-    fun matchesPackage(pkg: String?): Boolean =
-        pkg != null && packageNames.contains(pkg)
+    fun matchesPackage(pkg: String?): Boolean {
+        if (pkg == null) return false
+        if (packageNames.contains(pkg)) return true
+        return packageSubstrings.any { pkg.contains(it, ignoreCase = true) }
+    }
 
     internal val requiresWindowIdentity: Boolean
         get() = requiredWindowIdentities.isNotEmpty()
@@ -56,29 +62,28 @@ data class SupportedAppProfile(
             return true
         }
 
-        val description = contentDescription?.toString()?.trim()
-        if (description != null && sendDescriptions.any {
-                it.equals(description, ignoreCase = true)
+        if (allowUnlabeledComposerButtonFallback && viewId != null) {
+            val idPart = viewId.substringAfterLast('/')
+            if (idPart.contains("send") || idPart.contains("submit")) {
+                return true
             }
-        ) {
-            return true
         }
 
-        val nodeText = text?.toString()?.trim()
-        if (nodeText != null && sendDescriptions.any {
-                it.equals(nodeText, ignoreCase = true)
+        fun matchesDescription(candidate: CharSequence?): Boolean {
+            val value = candidate?.toString()?.trim() ?: return false
+            if (value.isEmpty()) return false
+            if (sendDescriptions.any { it.equals(value, ignoreCase = true) }) {
+                return true
             }
-        ) {
-            return true
+            if (sendDescriptionPrefixes.any { value.startsWith(it, ignoreCase = true) }) {
+                return true
+            }
+            return false
         }
 
-        val tooltip = tooltipText?.toString()?.trim()
-        if (tooltip != null && sendDescriptions.any {
-                it.equals(tooltip, ignoreCase = true)
-            }
-        ) {
-            return true
-        }
+        if (matchesDescription(contentDescription)) return true
+        if (matchesDescription(text)) return true
+        if (matchesDescription(tooltipText)) return true
 
         return false
     }
@@ -258,10 +263,25 @@ object SupportedAppProfiles {
             "com.google.android.apps.antigravity",
             "com.google.antigravity",
             "com.google.android.antigravity",
-            "com.antigravity"
+            "com.antigravity",
+            "com.google.android.apps.jetski",
+            "com.google.jetski",
+            "com.google.android.jetski",
+            "com.android.chrome",
+            "com.chrome.beta",
+            "com.chrome.dev",
+            "com.sec.android.app.sbrowser",
+            "com.brave.browser",
+            "com.microsoft.emmx",
+            "org.mozilla.firefox"
+        ),
+        packageSubstrings = setOf(
+            "antigravity",
+            "jetski",
+            "org.chromium.webapk"
         ),
         preferenceKey = "app_antigravity_enabled",
-        enabledByDefault = false,
+        enabledByDefault = true,
         sendDescriptions = setOf(
             "Send",
             "Send message",
@@ -269,7 +289,19 @@ object SupportedAppProfiles {
             "Submit",
             "Submit prompt",
             "Submit message",
-            "Send to agent"
+            "Send to agent",
+            "arrow_upward",
+            "arrow_upward_alt",
+            "north",
+            "arrow_forward",
+            "send"
+        ),
+        sendDescriptionPrefixes = setOf(
+            "Send (",
+            "Send message (",
+            "Send prompt (",
+            "Submit (",
+            "Submit prompt ("
         ),
         sendViewIdSuffixes = setOf(
             "/send_button",
@@ -285,7 +317,8 @@ object SupportedAppProfiles {
             "/send_prompt",
             "/chat_send_button",
             "/composer_send_button"
-        )
+        ),
+        allowUnlabeledComposerButtonFallback = true
     )
 
     val all: List<SupportedAppProfile> = listOf(

@@ -17,6 +17,8 @@ object BridgePreferences {
             .apply()
     }
 
+    private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic"
+
     fun isAppEnabled(context: Context, profile: SupportedAppProfile): Boolean =
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .getBoolean(profile.preferenceKey, profile.enabledByDefault)
@@ -29,6 +31,18 @@ object BridgePreferences {
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(profile.preferenceKey, enabled)
+            .apply()
+    }
+
+    fun getLastDiagnostic(context: Context): String =
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_DIAGNOSTIC, "No Enter key press recorded yet.")
+            ?: "No Enter key press recorded yet."
+
+    fun setLastDiagnostic(context: Context, diagnostic: String) {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LAST_DIAGNOSTIC, diagnostic)
             .apply()
     }
 }
