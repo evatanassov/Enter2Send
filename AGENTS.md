@@ -48,6 +48,7 @@ Supported apps in `SupportedAppProfiles.all`:
 7. **Gemini**: `com.google.android.apps.bard`, `com.google.android.googlequicksearchbox`
 8. **Slack**: `com.Slack`
 9. **Discord**: `com.discord`
+10. **Antigravity**: `com.google.android.apps.antigravity`, `com.google.antigravity`, `com.google.android.antigravity`, `com.antigravity`
 
 ---
 

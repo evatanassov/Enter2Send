@@ -54,6 +54,14 @@ class SupportedAppProfilesTest {
             SupportedAppProfiles.discord,
             SupportedAppProfiles.forPackage("com.discord")
         )
+        assertSame(
+            SupportedAppProfiles.antigravity,
+            SupportedAppProfiles.forPackage("com.google.android.apps.antigravity")
+        )
+        assertSame(
+            SupportedAppProfiles.antigravity,
+            SupportedAppProfiles.forPackage("com.google.antigravity")
+        )
         assertNull(SupportedAppProfiles.forPackage("com.example.other"))
         assertNull(SupportedAppProfiles.forPackage(null))
     }
@@ -69,6 +77,7 @@ class SupportedAppProfilesTest {
         assertFalse(SupportedAppProfiles.gemini.enabledByDefault)
         assertFalse(SupportedAppProfiles.slack.enabledByDefault)
         assertFalse(SupportedAppProfiles.discord.enabledByDefault)
+        assertFalse(SupportedAppProfiles.antigravity.enabledByDefault)
     }
 
     @Test
@@ -128,7 +137,8 @@ class SupportedAppProfilesTest {
                 "com.whatsapp",
                 "com.google.android.apps.bard",
                 "com.Slack",
-                "com.discord"
+                "com.discord",
+                "com.google.android.apps.antigravity"
             ),
             SupportedAppProfiles.all.map { it.packageName }.toSet()
         )

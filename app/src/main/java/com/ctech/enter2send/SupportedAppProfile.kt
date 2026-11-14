@@ -44,7 +44,8 @@ data class SupportedAppProfile(
     fun hasSendIdentity(
         contentDescription: CharSequence?,
         viewIdResourceName: String?,
-        text: CharSequence? = null
+        text: CharSequence? = null,
+        tooltipText: CharSequence? = null
     ): Boolean {
         val viewId = viewIdResourceName?.lowercase(Locale.ROOT)
         if (viewId != null && sendViewIdSuffixes.any { suffix ->
@@ -66,6 +67,14 @@ data class SupportedAppProfile(
         val nodeText = text?.toString()?.trim()
         if (nodeText != null && sendDescriptions.any {
                 it.equals(nodeText, ignoreCase = true)
+            }
+        ) {
+            return true
+        }
+
+        val tooltip = tooltipText?.toString()?.trim()
+        if (tooltip != null && sendDescriptions.any {
+                it.equals(tooltip, ignoreCase = true)
             }
         ) {
             return true
@@ -242,6 +251,43 @@ object SupportedAppProfiles {
         )
     )
 
+    val antigravity = SupportedAppProfile(
+        displayName = "Antigravity",
+        summaryResId = R.string.antigravity_summary,
+        packageNames = setOf(
+            "com.google.android.apps.antigravity",
+            "com.google.antigravity",
+            "com.google.android.antigravity",
+            "com.antigravity"
+        ),
+        preferenceKey = "app_antigravity_enabled",
+        enabledByDefault = false,
+        sendDescriptions = setOf(
+            "Send",
+            "Send message",
+            "Send prompt",
+            "Submit",
+            "Submit prompt",
+            "Submit message",
+            "Send to agent"
+        ),
+        sendViewIdSuffixes = setOf(
+            "/send_button",
+            "/send",
+            "/send_btn",
+            "/btn_send",
+            "/send_icon",
+            "/send_message",
+            "/send_message_button",
+            "/submit_button",
+            "/submit",
+            "/send_prompt_button",
+            "/send_prompt",
+            "/chat_send_button",
+            "/composer_send_button"
+        )
+    )
+
     val all: List<SupportedAppProfile> = listOf(
         chatGpt,
         messenger,
@@ -251,7 +297,8 @@ object SupportedAppProfiles {
         whatsApp,
         gemini,
         slack,
-        discord
+        discord,
+        antigravity
     )
 
     fun forPackage(packageName: String?): SupportedAppProfile? =

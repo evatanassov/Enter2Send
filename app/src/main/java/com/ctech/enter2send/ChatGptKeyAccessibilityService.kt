@@ -96,7 +96,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
 
         val composer = findFocusedComposer(activeApp.root, activeApp.profile) ?: return false
         val sendButton =
-            findUniqueSendButtonNearComposer(composer, activeApp.profile) ?: return false
+            findUniqueSendButtonNearComposer(composer, activeApp.profile, activeApp.root) ?: return false
         val composerAnchor = createComposerAnchor(composer, activeApp.profile)
         val clicked = sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         if (clicked) {
@@ -202,7 +202,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
                     return
                 }
 
-                when (findSendButtonNearComposer(composer, profile)) {
+                when (findSendButtonNearComposer(composer, profile, root)) {
                     SendButtonMatch.Absent -> {
                         operation.clearPolls += 1
                         if (operation.clearPolls >= SEND_CLEAR_CONFIRM_POLLS) {
@@ -359,14 +359,23 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         requireFocus: Boolean
     ): Boolean {
         if (!node.isVisibleToUser || !node.isEnabled) return false
-        val pkg = node.packageName?.toString()
-        val matchesPkg = profile.matchesPackage(pkg) || pkg == "android" || pkg?.contains("webview", ignoreCase = true) == true || pkg?.contains("chrome", ignoreCase = true) == true
-        if (!matchesPkg) return false
+        if (!matchesNodePackage(node.packageName?.toString(), profile)) return false
 
         val isEditableOrInput = node.isEditable ||
-            (!requireFocus && (node.className?.toString()?.contains("Edit", ignoreCase = true) == true || supportsAction(node, AccessibilityNodeInfo.ACTION_SET_TEXT)))
+            node.className?.toString()?.contains("Edit", ignoreCase = true) == true ||
+            supportsAction(node, AccessibilityNodeInfo.ACTION_SET_TEXT)
         return isEditableOrInput && (!requireFocus || node.isFocused)
     }
+
+    private fun matchesNodePackage(
+        pkg: String?,
+        profile: SupportedAppProfile
+    ): Boolean =
+        pkg == null ||
+            profile.matchesPackage(pkg) ||
+            pkg == "android" ||
+            pkg.contains("webview", ignoreCase = true) ||
+            pkg.contains("chrome", ignoreCase = true)
 
     private fun createComposerAnchor(
         composer: AccessibilityNodeInfo,
@@ -383,10 +392,15 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
     private fun matchesComposerAnchor(
         composer: AccessibilityNodeInfo,
         anchor: ComposerAnchor
-    ): Boolean = (composer.packageName?.toString() == anchor.packageName || SupportedAppProfiles.forPackage(anchor.packageName)?.matchesPackage(composer.packageName?.toString()) == true) &&
-        composer.className?.toString() == anchor.className &&
-        composer.viewIdResourceName == anchor.viewIdResourceName &&
-        composerAncestorClassNames(composer) == anchor.ancestorClassNames
+    ): Boolean {
+        val profile = SupportedAppProfiles.forPackage(anchor.packageName)
+        val pkgMatches = composer.packageName?.toString() == anchor.packageName ||
+            (profile != null && matchesNodePackage(composer.packageName?.toString(), profile))
+        return pkgMatches &&
+            composer.className?.toString() == anchor.className &&
+            composer.viewIdResourceName == anchor.viewIdResourceName &&
+            composerAncestorClassNames(composer) == anchor.ancestorClassNames
+    }
 
     private fun composerAncestorClassNames(composer: AccessibilityNodeInfo): List<String?> {
         val classNames = mutableListOf<String?>()
@@ -401,13 +415,15 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
 
     private fun findUniqueSendButtonNearComposer(
         composer: AccessibilityNodeInfo,
-        profile: SupportedAppProfile
+        profile: SupportedAppProfile,
+        windowRoot: AccessibilityNodeInfo? = null
     ): AccessibilityNodeInfo? =
-        (findSendButtonNearComposer(composer, profile) as? SendButtonMatch.Unique)?.node
+        (findSendButtonNearComposer(composer, profile, windowRoot) as? SendButtonMatch.Unique)?.node
 
     private fun findSendButtonNearComposer(
         composer: AccessibilityNodeInfo,
-        profile: SupportedAppProfile
+        profile: SupportedAppProfile,
+        windowRoot: AccessibilityNodeInfo? = null
     ): SendButtonMatch {
         var ancestor: AccessibilityNodeInfo? = composer
         repeat(MAX_COMPOSER_ANCESTOR_LEVELS) {
@@ -427,7 +443,7 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         }
 
         // Fallback: search window root if ancestor search yielded no unique button
-        val root = rootInActiveWindow
+        val root = windowRoot ?: rootInActiveWindow
         if (root != null) {
             val rootCandidates = mutableListOf<AccessibilityNodeInfo>()
             collectIdentityTargets(root, null, profile, rootCandidates)
@@ -451,9 +467,19 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
 
         val clickableTarget =
             if (isClickableActionNode(node, profile)) node else clickableAncestor
+        val tooltipText = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            node.tooltipText
+        } else {
+            null
+        }
         if (clickableTarget != null &&
             isIdentityBearingActionNode(node, profile) &&
-            profile.hasSendIdentity(node.contentDescription, node.viewIdResourceName, node.text) &&
+            profile.hasSendIdentity(
+                node.contentDescription,
+                node.viewIdResourceName,
+                node.text,
+                tooltipText
+            ) &&
             matches.none { it == clickableTarget }
         ) {
             matches += clickableTarget
@@ -475,17 +501,17 @@ class ChatGptKeyAccessibilityService : AccessibilityService() {
         node: AccessibilityNodeInfo,
         profile: SupportedAppProfile
     ): Boolean =
-        (profile.matchesPackage(node.packageName?.toString()) || node.packageName == null) &&
+        matchesNodePackage(node.packageName?.toString(), profile) &&
             node.isVisibleToUser &&
             node.isEnabled &&
-            node.isClickable &&
+            (node.isClickable || supportsAction(node, AccessibilityNodeInfo.ACTION_CLICK)) &&
             supportsAction(node, AccessibilityNodeInfo.ACTION_CLICK)
 
     private fun isIdentityBearingActionNode(
         node: AccessibilityNodeInfo,
         profile: SupportedAppProfile
     ): Boolean {
-        return (profile.matchesPackage(node.packageName?.toString()) || node.packageName == null) &&
+        return matchesNodePackage(node.packageName?.toString(), profile) &&
             node.isVisibleToUser &&
             node.isEnabled &&
             !node.isEditable
